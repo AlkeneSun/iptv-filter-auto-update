@@ -17,7 +17,7 @@ DEFAULT_SOURCE_URLS = [
 ]
 
 DEFAULT_GROUP_KEYWORDS = [
-    "[电信]咪视界直播",
+    "[电信]央卫视直播",
     "[联通]咪视界直播",
     "[三网]央卫视直播",
 ]
