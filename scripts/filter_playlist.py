@@ -48,6 +48,14 @@ def extract_group_title(extinf_line: str) -> str:
     return match.group(1) if match else ""
 
 
+def replace_group_title(extinf_line: str, group_title: str) -> str:
+    return GROUP_TITLE_PATTERN.sub(
+        f'group-title="{group_title}"',
+        extinf_line,
+        count=1,
+    )
+
+
 def filter_playlist(text: str, keywords: list[str]) -> tuple[str, Counter]:
     lines = text.splitlines()
 
@@ -58,7 +66,7 @@ def filter_playlist(text: str, keywords: list[str]) -> tuple[str, Counter]:
             header = normalized
             break
 
-    output_lines = [header]
+    bucketed_entries: dict[str, list[tuple[str, str]]] = {keyword: [] for keyword in keywords}
     kept_by_group: Counter = Counter()
 
     index = 0
@@ -68,8 +76,11 @@ def filter_playlist(text: str, keywords: list[str]) -> tuple[str, Counter]:
             index += 1
             continue
 
-        group_title = extract_group_title(line)
-        should_keep = any(keyword in group_title for keyword in keywords)
+        source_group_title = extract_group_title(line)
+        matched_keyword = next(
+            (keyword for keyword in keywords if keyword in source_group_title),
+            None,
+        )
 
         next_index = index + 1
         stream_url = None
@@ -84,12 +95,18 @@ def filter_playlist(text: str, keywords: list[str]) -> tuple[str, Counter]:
             stream_url = candidate
             break
 
-        if stream_url and should_keep:
-            output_lines.append(line)
-            output_lines.append(stream_url)
-            kept_by_group[group_title] += 1
+        if stream_url and matched_keyword:
+            normalized_extinf = replace_group_title(line, matched_keyword)
+            bucketed_entries[matched_keyword].append((normalized_extinf, stream_url))
+            kept_by_group[matched_keyword] += 1
 
         index = next_index + 1 if stream_url else index + 1
+
+    output_lines = [header]
+    for keyword in keywords:
+        for extinf_line, stream_url in bucketed_entries[keyword]:
+            output_lines.append(extinf_line)
+            output_lines.append(stream_url)
 
     return "\n".join(output_lines) + "\n", kept_by_group
 
